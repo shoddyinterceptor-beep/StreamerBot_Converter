@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Streamer.bot Converter · SB ↔ JSON</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:        #0e0f11;
+    --surface:   #16181c;
+    --border:    #2a2d35;
+    --border-hi: #3d4250;
+    --accent:    #7c6bff;
+    --accent-lo: #7c6bff28;
+    --accent-hi: #a99dff;
+    --green:     #3ddc84;
+    --green-lo:  #3ddc8420;
+    --orange:    #ff9a3c;
+    --orange-lo: #ff9a3c20;
+    --red:       #ff5f5f;
+    --red-lo:    #ff5f5f20;
+    --text:      #e8eaf0;
+    --muted:     #6b7280;
+    --track:     #1e2028;
+  }
+  html, body {
+    min-height: 100%; background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif; font-size: 14px;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 32px 16px; -webkit-font-smoothing: antialiased;
+  }
+  .shell {
+    width: 560px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+    box-shadow: 0 24px 80px #00000060, 0 0 0 1px #ffffff06 inset;
+  }
+
+  /* ── title bar ── */
+  .titlebar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    background: #13151a; user-select: none;
+  }
+  .titlebar-dots { display: flex; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--border-hi); }
+  .titlebar-title {
+    flex: 1; text-align: center; font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; color: var(--muted); letter-spacing: .06em;
+  }
+  .titlebar-spacer { width: 42px; }
+
+  /* ── tabs ── */
+  .tabs {
+    display: flex; border-bottom: 1px solid var(--border); background: #13151a;
+  }
+  .tab {
+    flex: 1; padding: 11px 0; text-align: center; font-size: 12px; font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace; letter-spacing: .05em;
+    color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s; user-select: none;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent-hi); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── body ── */
+  .body { padding: 24px 26px 22px; }
+
+  /* ── drop zone ── */
+  .dropzone {
+    position: relative; border: 2px dashed var(--border-hi);
+    border-radius: 10px; padding: 30px 24px; text-align: center;
+    cursor: pointer; transition: border-color .2s, background .2s;
+  }
+  .dropzone:hover, .dropzone.drag-over { border-color: var(--accent); background: var(--accent-lo); }
+  .dropzone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .dz-icon { font-size: 28px; line-height: 1; margin-bottom: 10px; display: block; }
+  .dz-label { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+  .dz-sub { font-size: 11.5px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+
+  /* ── file card ── */
+  .file-card {
+    display: none; align-items: center; gap: 14px;
+    background: #1b1e26; border: 1px solid var(--border-hi);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .file-card.visible { display: flex; }
+  .file-icon {
+    width: 38px; height: 38px; background: var(--accent-lo); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0;
+  }
+  .file-meta { flex: 1; min-width: 0; }
+  .file-name {
+    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 500;
+    color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .file-size { font-size: 11px; color: var(--muted); margin-top: 3px; font-family: 'IBM Plex Mono', monospace; }
+  .btn-x {
+    width: 28px; height: 28px; border: none; background: #2a2d38; border-radius: 6px;
+    color: var(--muted); font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: background .15s, color .15s; line-height: 1;
+  }
+  .btn-x:hover { background: var(--red-lo); color: var(--red); }
+
+  /* ── or divider ── */
+  .or-divider {
+    display: flex; align-items: center; gap: 10px; margin: 16px 0;
+    color: var(--muted); font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace; letter-spacing: .08em;
+  }
+  .or-divider::before, .or-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── paste area ── */
+  .paste-wrap { position: relative; }
+  .paste-area {
+    width: 100%; min-height: 70px; max-height: 130px; resize: vertical;
+    background: #0e0f13; border: 1px solid var(--border-hi); border-radius: 10px;
+    color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    line-height: 1.6; padding: 10px 36px 10px 12px; outline: none;
+    transition: border-color .2s, box-shadow .2s; word-break: break-all;
+  }
+  .paste-area::placeholder { color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .paste-area:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-lo); }
+  .paste-area.has-content { border-color: var(--accent); }
+  .btn-paste-clear {
+    position: absolute; top: 7px; right: 7px; width: 22px; height: 22px;
+    border: none; background: #2a2d38; border-radius: 4px; color: var(--muted);
+    font-size: 12px; cursor: pointer; display: none; align-items: center;
+    justify-content: center; transition: background .15s, color .15s; line-height: 1;
+  }
+  .btn-paste-clear.visible { display: flex; }
+  .btn-paste-clear:hover { background: var(--red-lo); color: var(--red); }
+  .paste-hint { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: 5px; padding-left: 2px; }
+
+  /* ── progress ── */
+  .progress-wrap { margin-top: 18px; display: none; }
+  .progress-wrap.visible { display: block; }
+  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .progress-label { font-size: 11.5px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; letter-spacing: .04em; }
+  .progress-pct { font-size: 11.5px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: var(--accent-hi); }
+  .track { height: 5px; background: var(--track); border-radius: 99px; overflow: hidden; }
+  .bar {
+    height: 100%; width: 0%; border-radius: 99px;
+    transition: width .12s ease; position: relative;
+  }
+  .bar.decode-bar { background: linear-gradient(90deg, var(--accent), var(--accent-hi)); }
+  .bar.encode-bar { background: linear-gradient(90deg, var(--orange), #ffcc70); }
+  .bar::after {
+    content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 30px;
+    background: linear-gradient(90deg, transparent, #ffffff30);
+    border-radius: 99px; animation: shimmer 1s linear infinite;
+  }
+  @keyframes shimmer { 0%{opacity:0} 50%{opacity:1} 100%{opacity:0} }
+  .bar.done::after { display: none; }
+
+  /* ── log ── */
+  .log {
+    margin-top: 12px; background: #0e0f13; border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; line-height: 1.8; min-height: 72px; max-height: 150px;
+    overflow-y: auto; color: var(--muted);
+  }
+  .log-line { display: block; }
+  .log-line.ok   { color: var(--green); }
+  .log-line.err  { color: var(--red); }
+  .log-line.info { color: var(--accent-hi); }
+  .log-line.warn { color: var(--orange); }
+
+  /* ── result banner ── */
+  .result-banner {
+    display: none; margin-top: 16px; border-radius: 8px;
+    padding: 12px 14px; align-items: center; gap: 12px;
+  }
+  .result-banner.ok  { display: flex; background: var(--green-lo);  border: 1px solid #3ddc8440; }
+  .result-banner.err { display: flex; background: var(--red-lo);    border: 1px solid #ff5f5f40; }
+  .result-banner.warn{ display: flex; background: var(--orange-lo); border: 1px solid #ff9a3c40; }
+  .result-icon { font-size: 20px; flex-shrink: 0; }
+  .result-text { flex: 1; }
+  .result-title { font-weight: 600; font-size: 13px; }
+  .result-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .btn-action {
+    border: none; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+    padding: 7px 13px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+    flex-shrink: 0; transition: opacity .15s;
+  }
+  .btn-action:hover { opacity: .85; }
+  .btn-green { background: var(--green); color: #000; }
+  .btn-orange { background: var(--orange); color: #000; }
+
+  /* ── encoder section specific ── */
+  .enc-json-wrap { position: relative; margin-top: 0; }
+  .enc-json-area {
+    width: 100%; min-height: 180px; max-height: 300px; resize: vertical;
+    background: #0e0f13; border: 1px solid var(--border-hi); border-radius: 10px;
+    color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    line-height: 1.6; padding: 12px 36px 12px 14px; outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .enc-json-area::placeholder { color: var(--muted); }
+  .enc-json-area:focus { border-color: var(--orange); box-shadow: 0 0 0 3px var(--orange-lo); }
+  .enc-json-area.has-content { border-color: var(--border-hi); }
+  .enc-json-area.valid   { border-color: var(--green) !important; }
+  .enc-json-area.invalid { border-color: var(--red)   !important; }
+  .btn-enc-clear {
+    position: absolute; top: 8px; right: 8px; width: 22px; height: 22px;
+    border: none; background: #2a2d38; border-radius: 4px; color: var(--muted);
+    font-size: 12px; cursor: pointer; display: none; align-items: center;
+    justify-content: content; transition: background .15s, color .15s; line-height: 1;
+    justify-content: center;
+  }
+  .btn-enc-clear.visible { display: flex; }
+  .btn-enc-clear:hover { background: var(--red-lo); color: var(--red); }
+
+  .enc-controls {
+    display: flex; gap: 10px; margin-top: 14px; align-items: center;
+  }
+  .enc-hint { flex: 1; font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .btn-encode {
+    border: none; background: var(--orange); color: #000;
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+    padding: 8px 16px; border-radius: 7px; cursor: pointer;
+    transition: opacity .15s, transform .1s; white-space: nowrap; flex-shrink: 0;
+  }
+  .btn-encode:hover { opacity: .88; }
+  .btn-encode:active { transform: scale(.97); }
+  .btn-encode:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+
+  .schema-ref {
+    margin-top: 14px; background: #0e0f13; border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden;
+  }
+  .schema-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 12px; cursor: pointer; user-select: none;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted);
+    transition: color .15s;
+  }
+  .schema-toggle:hover { color: var(--text); }
+  .schema-arrow { transition: transform .2s; }
+  .schema-toggle.open .schema-arrow { transform: rotate(180deg); }
+  .schema-body {
+    display: none; padding: 0 12px 12px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px; color: var(--muted); line-height: 1.7;
+  }
+  .schema-body.open { display: block; }
+  .schema-key { color: var(--accent-hi); }
+  .schema-type { color: var(--orange); }
+  .schema-comment { color: #454a5c; font-style: italic; }
+  .schema-section { margin-top: 10px; color: var(--text); font-weight: 600; font-size: 10px; letter-spacing: .06em; }
+
+  /* ── output string ── */
+  .enc-output-wrap { position: relative; margin-top: 12px; }
+  .enc-output-area {
+    width: 100%; height: 90px; resize: none;
+    background: #0a0b0e; border: 1px solid var(--green);
+    border-radius: 8px; color: var(--green); font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px; line-height: 1.5; padding: 10px 12px; outline: none;
+    word-break: break-all;
+  }
+  .enc-output-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .btn-copy {
+    border: none; background: var(--green); color: #000;
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+    padding: 7px 14px; border-radius: 6px; cursor: pointer; transition: opacity .15s;
+  }
+  .btn-copy:hover { opacity: .85; }
+  .btn-copy.copied { background: var(--accent-hi); }
+  .btn-save-sb {
+    border: none; background: #2a2d38; color: var(--text);
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+    padding: 7px 14px; border-radius: 6px; cursor: pointer; transition: background .15s;
+  }
+  .btn-save-sb:hover { background: var(--border-hi); }
+  .enc-output-section { display: none; }
+  .enc-output-section.visible { display: block; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- title bar -->
+  <div class="titlebar">
+    <div class="titlebar-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <span class="titlebar-title">streamer.bot converter</span>
+    <div class="titlebar-spacer"></div>
+  </div>
+
+  <!-- tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="decode">⬇ SB → JSON</div>
+    <div class="tab" data-tab="encode">⬆ JSON → SB</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       DECODE TAB
+  ══════════════════════════════════════════════════ -->
+  <div class="tab-panel active" id="panel-decode">
+    <div class="body">
+
+      <!-- drop zone -->
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept=".sb">
+        <span class="dz-icon">📦</span>
+        <div class="dz-label">Drop your .sb export here</div>
+        <div class="dz-sub">or click to browse</div>
+      </div>
+
+      <!-- file card -->
+      <div class="file-card" id="fileCard">
+        <div class="file-icon">🤖</div>
+        <div class="file-meta">
+          <div class="file-name" id="fileName">—</div>
+          <div class="file-size" id="fileSize">—</div>
+        </div>
+        <button class="btn-x" id="btnClear" title="Unload file">✕</button>
+      </div>
+
+      <!-- paste section -->
+      <div id="pasteSection">
+        <div class="or-divider">OR PASTE EXPORT STRING</div>
+        <div class="paste-wrap">
+          <textarea class="paste-area" id="pasteArea"
+            placeholder="Paste your Streamer.bot export string here…  (U0JBRR+L…)"
+            spellcheck="false" autocomplete="off"></textarea>
+          <button class="btn-paste-clear" id="btnPasteClear" title="Clear string">✕</button>
+        </div>
+        <div class="paste-hint" id="pasteHint">Starts decoding automatically when a valid string is pasted</div>
+      </div>
+
+      <!-- progress -->
+      <div class="progress-wrap" id="decodeProgressWrap">
+        <div class="progress-header">
+          <span class="progress-label" id="decodeProgressLabel">DECODING…</span>
+          <span class="progress-pct" id="decodeProgressPct">0%</span>
+        </div>
+        <div class="track"><div class="bar decode-bar" id="decodeBar"></div></div>
+        <div class="log" id="decodeLog"></div>
+      </div>
+
+      <!-- result -->
+      <div class="result-banner" id="decodeResult">
+        <span class="result-icon" id="decodeResultIcon"></span>
+        <div class="result-text">
+          <div class="result-title" id="decodeResultTitle"></div>
+          <div class="result-sub" id="decodeResultSub"></div>
+        </div>
+        <button class="btn-action btn-green" id="btnSaveJSON" style="display:none">Save JSON</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       ENCODE TAB
+  ══════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="panel-encode">
+    <div class="body">
+
+      <!-- JSON input -->
+      <div class="enc-json-wrap">
+        <textarea class="enc-json-area" id="encJsonArea"
+          placeholder='Paste your JSON here, or drop a .json file…'
+          spellcheck="false" autocomplete="off"></textarea>
+        <button class="btn-enc-clear" id="btnEncClear" title="Clear JSON">✕</button>
+      </div>
+
+      <!-- encode controls -->
+      <div class="enc-controls">
+        <span class="enc-hint" id="encHint">Paste valid Streamer.bot JSON to encode</span>
+        <button class="btn-encode" id="btnEncode" disabled>Encode → .sb</button>
+      </div>
+
+      <!-- schema reference -->
+      <div class="schema-ref">
+        <div class="schema-toggle" id="schemaToggle">
+          <span>📋 JSON Schema Reference</span>
+          <span class="schema-arrow">▾</span>
+        </div>
+        <div class="schema-body" id="schemaBody">
+          <div class="schema-section">TOP-LEVEL STRUCTURE</div>
+<pre><span class="schema-key">{
+  "version"</span>: <span class="schema-type">number</span>,      <span class="schema-comment">// export format — use 23</span>
+  <span class="schema-key">"exportedFrom"</span>: <span class="schema-type">string</span>,  <span class="schema-comment">// e.g. "1.0.4"</span>
+  <span class="schema-key">"minimumVersion"</span>: <span class="schema-type">string|null</span>,
+  <span class="schema-key">"meta"</span>: { <span class="schema-comment">/* see below */</span> },
+  <span class="schema-key">"data"</span>: { <span class="schema-comment">/* see below */</span> }
+}</pre>
+
+          <div class="schema-section">META</div>
+<pre><span class="schema-key">"meta"</span>: {
+  <span class="schema-key">"name"</span>: <span class="schema-type">string</span>,
+  <span class="schema-key">"author"</span>: <span class="schema-type">string</span>,
+  <span class="schema-key">"version"</span>: <span class="schema-type">string</span>,      <span class="schema-comment">// e.g. "1.0.0"</span>
+  <span class="schema-key">"description"</span>: <span class="schema-type">string</span>,
+  <span class="schema-key">"autoRunAction"</span>: <span class="schema-type">null|string</span>
+}</pre>
+
+          <div class="schema-section">DATA</div>
+<pre><span class="schema-key">"data"</span>: {
+  <span class="schema-key">"actions"</span>: <span class="schema-type">Action[]</span>,
+  <span class="schema-key">"queues"</span>: <span class="schema-type">[]</span>,         <span class="schema-comment">// usually empty</span>
+  <span class="schema-key">"commands"</span>: <span class="schema-type">Command[]</span>,
+  <span class="schema-key">"timers"</span>: <span class="schema-type">Timer[]</span>,
+  <span class="schema-key">"websocketServers"</span>: <span class="schema-type">[]</span>,
+  <span class="schema-key">"websocketClients"</span>: <span class="schema-type">[]</span>
+}</pre>
+
+          <div class="schema-section">ACTION</div>
+<pre><span class="schema-key">{
+  "id"</span>: <span class="schema-type">string</span>,           <span class="schema-comment">// UUID v4</span>
+  <span class="schema-key">"name"</span>: <span class="schema-type">string</span>,
+  <span class="schema-key">"group"</span>: <span class="schema-type">string|null</span>,
+  <span class="schema-key">"enabled"</span>: <span class="schema-type">boolean</span>,
+  <span class="schema-key">"queue"</span>: <span class="schema-type">string</span>,       <span class="schema-comment">// UUID — use "00000000-0000-0000-0000-000000000000"</span>
+  <span class="schema-key">"alwaysRun"</span>: <span class="schema-type">boolean</span>,
+  <span class="schema-key">"concurrent"</span>: <span class="schema-type">boolean</span>,
+  <span class="schema-key">"randomAction"</span>: <span class="schema-type">boolean</span>,
+  <span class="schema-key">"excludeFromHistory"</span>: <span class="schema-type">boolean</span>,
+  <span class="schema-key">"excludeFromPending"</span>: <span class="schema-type">boolean</span>,
+  <span class="schema-key">"collapsedGroups"</span>: <span class="schema-type">[]</span>,
+  <span class="schema-key">"triggers"</span>: <span class="schema-type">Trigger[]</span>,
+  <span class="schema-key">"subActions"</span>: <span class="schema-type">SubAction[]</span>
+}</pre>
+
+          <div class="schema-section">TRIGGERS (type codes)</div>
+<pre><span class="schema-comment">// Chat command trigger</span>
+<span class="schema-key">{ "type"</span>: <span class="schema-type">401</span>, <span class="schema-key">"commandId"</span>: <span class="schema-type">string</span>,
+  <span class="schema-key">"id"</span>: <span class="schema-type">UUID</span>, <span class="schema-key">"enabled"</span>: <span class="schema-type">bool</span>, <span class="schema-key">"exclusions"</span>: <span class="schema-type">[]</span> }
+
+<span class="schema-comment">// Timer trigger</span>
+<span class="schema-key">{ "type"</span>: <span class="schema-type">701</span>, <span class="schema-key">"timerId"</span>: <span class="schema-type">string</span>,
+  <span class="schema-key">"id"</span>: <span class="schema-type">UUID</span>, <span class="schema-key">"enabled"</span>: <span class="schema-type">bool</span>, <span class="schema-key">"exclusions"</span>: <span class="schema-type">[]</span> }
+
+<span class="schema-comment">// Follower / Sub trigger (min/max viewers)</span>
+<span class="schema-key">{ "type"</span>: <span class="schema-type">102</span>, <span class="schema-key">"min"</span>: <span class="schema-type">number</span>, <span class="schema-key">"max"</span>: <span class="schema-type">number</span>,
+  <span class="schema-key">"id"</span>: <span class="schema-type">UUID</span>, <span class="schema-key">"enabled"</span>: <span class="schema-type">bool</span>, <span class="schema-key">"exclusions"</span>: <span class="schema-type">[]</span> }
+
+<span class="schema-comment">// Stream start (type 124), Stream end (type 133)</span>
+<span class="schema-key">{ "type"</span>: <span class="schema-type">124|133</span>,
+  <span class="schema-key">"id"</span>: <span class="schema-type">UUID</span>, <span class="schema-key">"enabled"</span>: <span class="schema-type">bool</span>, <span class="schema-key">"exclusions"</span>: <span class="schema-type">[]</span> }
+
+<span class="schema-comment">// WebSocket custom event (type 2003)</span>
+<span class="schema-key">{ "type"</span>: <span class="schema-type">2003</span>,
+  <span class="schema-key">"id"</span>: <span class="schema-type">UUID</span>, <span class="schema-key">"enabled"</span>: <span class="schema-type">bool</span>, <span class="schema-key">"exclusions"</span>: <span class="schema-type">[]</span> }</pre>
+
+          <div class="schema-section">SUB-ACTIONS (type codes)</div>
+<pre><span class="schema-comment">// Execute C# code (type 99999)</span>
+<span class="schema-key">{
+  "type"</span>: <span class="schema-type">99999</span>,
+  <span class="schema-key">"id"</span>: <span class="schema-type">UUID</span>, <span class="schema-key">"enabled"</span>: <span class="schema-type">bool</span>, <span class="schema-key">"index"</span>: <span class="schema-type">number</span>,
+  <span class="schema-key">"weight"</span>: <span class="schema-type">0</span>, <span class="schema-key">"parentId"</span>: <span class="schema-type">null</span>,
+  <span class="schema-key">"name"</span>: <span class="schema-type">null</span>, <span class="schema-key">"description"</span>: <span class="schema-type">null</span>,
+  <span class="schema-key">"references"</span>: <span class="schema-type">string[]</span>,   <span class="schema-comment">// DLL paths</span>
+  <span class="schema-key">"precompile"</span>: <span class="schema-type">false</span>,
+  <span class="schema-key">"delayStart"</span>: <span class="schema-type">false</span>,
+  <span class="schema-key">"saveResultToVariable"</span>: <span class="schema-type">false</span>,
+  <span class="schema-key">"saveToVariable"</span>: <span class="schema-type">null</span>,
+  <span class="schema-key">"byteCode"</span>: <span class="schema-type">string</span>      <span class="schema-comment">// base64(UTF-8 C# source)</span>
+}
+
+<span class="schema-comment">// Set variable (type 123)</span>
+<span class="schema-key">{
+  "type"</span>: <span class="schema-type">123</span>, <span class="schema-key">"variableName"</span>: <span class="schema-type">string</span>,
+  <span class="schema-key">"value"</span>: <span class="schema-type">string</span>, <span class="schema-key">"autoType"</span>: <span class="schema-type">boolean</span>,
+  <span class="schema-key">"id"</span>: <span class="schema-type">UUID</span>, <span class="schema-key">"enabled"</span>: <span class="schema-type">bool</span>, <span class="schema-key">"index"</span>: <span class="schema-type">number</span>,
+  <span class="schema-key">"weight"</span>: <span class="schema-type">0</span>, <span class="schema-key">"parentId"</span>: <span class="schema-type">null</span>
+}
+
+<span class="schema-comment">// Delay (type 1002)</span>
+<span class="schema-key">{
+  "type"</span>: <span class="schema-type">1002</span>, <span class="schema-key">"value"</span>: <span class="schema-type">string</span>,  <span class="schema-comment">// ms as string</span>
+  <span class="schema-key">"maxValue"</span>: <span class="schema-type">null</span>, <span class="schema-key">"random"</span>: <span class="schema-type">false</span>,
+  <span class="schema-key">"id"</span>: <span class="schema-type">UUID</span>, <span class="schema-key">"enabled"</span>: <span class="schema-type">bool</span>, <span class="schema-key">"index"</span>: <span class="schema-type">number</span>,
+  <span class="schema-key">"weight"</span>: <span class="schema-type">0</span>, <span class="schema-key">"parentId"</span>: <span class="schema-type">null</span>
+}
+
+<span class="schema-comment">// OBS Source visibility (type 30)</span>
+<span class="schema-key">{
+  "type"</span>: <span class="schema-type">30</span>, <span class="schema-key">"sceneName"</span>: <span class="schema-type">string</span>,
+  <span class="schema-key">"sourceName"</span>: <span class="schema-type">string</span>, <span class="schema-key">"state"</span>: <span class="schema-type">0|1</span>,
+  <span class="schema-key">"connectionId"</span>: <span class="schema-type">"00000000-..."</span>,
+  <span class="schema-key">"id"</span>: <span class="schema-type">UUID</span>, <span class="schema-key">"enabled"</span>: <span class="schema-type">bool</span>, <span class="schema-key">"index"</span>: <span class="schema-type">number</span>,
+  <span class="schema-key">"weight"</span>: <span class="schema-type">0</span>, <span class="schema-key">"parentId"</span>: <span class="schema-type">null</span>
+}
+
+<span class="schema-comment">// Send chat message (type 1 or 7)</span>
+<span class="schema-key">{
+  "type"</span>: <span class="schema-type">1</span>, <span class="schema-key">"message"</span>: <span class="schema-type">string</span>,
+  <span class="schema-key">"id"</span>: <span class="schema-type">UUID</span>, <span class="schema-key">"enabled"</span>: <span class="schema-type">bool</span>, <span class="schema-key">"index"</span>: <span class="schema-type">number</span>,
+  <span class="schema-key">"weight"</span>: <span class="schema-type">0</span>, <span class="schema-key">"parentId"</span>: <span class="schema-type">null</span>
+}</pre>
+
+          <div class="schema-section">COMMAND</div>
+<pre><span class="schema-key">{
+  "id"</span>: <span class="schema-type">UUID</span>, <span class="schema-key">"name"</span>: <span class="schema-type">string</span>,
+  <span class="schema-key">"command"</span>: <span class="schema-type">string</span>,        <span class="schema-comment">// "!cmd\r\nalias" for multi-alias</span>
+  <span class="schema-key">"enabled"</span>: <span class="schema-type">boolean</span>,
+  <span class="schema-key">"mode"</span>: <span class="schema-type">0</span>,               <span class="schema-comment">// 0=contains, 1=exact, 2=startsWith</span>
+  <span class="schema-key">"location"</span>: <span class="schema-type">0</span>,
+  <span class="schema-key">"sources"</span>: <span class="schema-type">1</span>,
+  <span class="schema-key">"globalCooldown"</span>: <span class="schema-type">number</span>, <span class="schema-comment">// seconds</span>
+  <span class="schema-key">"userCooldown"</span>: <span class="schema-type">number</span>,
+  <span class="schema-key">"grantType"</span>: <span class="schema-type">0</span>,
+  <span class="schema-key">"caseSensitive"</span>: <span class="schema-type">false</span>,
+  <span class="schema-key">"group"</span>: <span class="schema-type">null</span>,
+  <span class="schema-key">"include"</span>: <span class="schema-type">false</span>,
+  <span class="schema-key">"ignoreBotAccount"</span>: <span class="schema-type">false</span>,
+  <span class="schema-key">"ignoreInternal"</span>: <span class="schema-type">false</span>,
+  <span class="schema-key">"regexExplicitCapture"</span>: <span class="schema-type">false</span>,
+  <span class="schema-key">"persistCounter"</span>: <span class="schema-type">false</span>,
+  <span class="schema-key">"persistUserCounter"</span>: <span class="schema-type">false</span>,
+  <span class="schema-key">"permittedUsers"</span>: <span class="schema-type">[]</span>,
+  <span class="schema-key">"permittedGroups"</span>: <span class="schema-type">[]</span>
+}</pre>
+
+          <div class="schema-section">TIMER</div>
+<pre><span class="schema-key">{
+  "id"</span>: <span class="schema-type">UUID</span>, <span class="schema-key">"name"</span>: <span class="schema-type">string</span>,
+  <span class="schema-key">"enabled"</span>: <span class="schema-type">boolean</span>,
+  <span class="schema-key">"repeat"</span>: <span class="schema-type">boolean</span>,
+  <span class="schema-key">"interval"</span>: <span class="schema-type">number</span>,      <span class="schema-comment">// seconds</span>
+  <span class="schema-key">"randomInterval"</span>: <span class="schema-type">false</span>,
+  <span class="schema-key">"upperInterval"</span>: <span class="schema-type">0</span>,
+  <span class="schema-key">"lines"</span>: <span class="schema-type">0</span>,
+  <span class="schema-key">"counter"</span>: <span class="schema-type">0</span>
+}</pre>
+        </div>
+      </div>
+
+      <!-- drop zone for JSON file -->
+      <div class="or-divider" style="margin-top:14px">OR DROP A .JSON FILE</div>
+      <div class="dropzone" id="encDropzone" style="padding:18px 24px;">
+        <input type="file" id="encFileInput" accept=".json">
+        <span class="dz-icon" style="font-size:22px;margin-bottom:6px">📄</span>
+        <div class="dz-label" style="font-size:13px">Drop .json file here</div>
+        <div class="dz-sub">populates the editor above</div>
+      </div>
+
+      <!-- encode progress -->
+      <div class="progress-wrap" id="encodeProgressWrap">
+        <div class="progress-header">
+          <span class="progress-label" id="encodeProgressLabel">ENCODING…</span>
+          <span class="progress-pct" id="encodeProgressPct">0%</span>
+        </div>
+        <div class="track"><div class="bar encode-bar" id="encodeBar"></div></div>
+        <div class="log" id="encodeLog"></div>
+      </div>
+
+      <!-- encode result -->
+      <div class="result-banner" id="encodeResult">
+        <span class="result-icon" id="encodeResultIcon"></span>
+        <div class="result-text">
+          <div class="result-title" id="encodeResultTitle"></div>
+          <div class="result-sub" id="encodeResultSub"></div>
+        </div>
+      </div>
+
+      <!-- output string -->
+      <div class="enc-output-section" id="encOutputSection">
+        <textarea class="enc-output-area" id="encOutputArea" readonly></textarea>
+        <div class="enc-output-actions">
+          <button class="btn-copy" id="btnCopyOutput">Copy to Clipboard</button>
+          <button class="btn-save-sb" id="btnSaveSB">Save as .sb</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /shell -->
+
+<script>
+/* ═══════════════════════════════════════════════════
+   SHARED UTILITIES
+═══════════════════════════════════════════════════ */
+function fmtBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n/1024).toFixed(1) + ' KB';
+  return (n/1048576).toFixed(2) + ' MB';
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function uuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+/* gzip compress via CompressionStream */
+async function gzipCompress(str) {
+  const bytes = new TextEncoder().encode(str);
+  const cs = new CompressionStream('gzip');
+  const writer = cs.writable.getWriter();
+  const reader = cs.readable.getReader();
+  writer.write(bytes);
+  writer.close();
+  const chunks = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const total = chunks.reduce((a, c) => a + c.length, 0);
+  const merged = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) { merged.set(c, off); off += c.length; }
+  return merged;
+}
+
+/* gzip decompress via DecompressionStream */
+async function gzipDecompress(bytes) {
+  const ds = new DecompressionStream('gzip');
+  const writer = ds.writable.getWriter();
+  const reader = ds.readable.getReader();
+  writer.write(bytes);
+  writer.close();
+  const chunks = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const total = chunks.reduce((a, c) => a + c.length, 0);
+  const merged = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) { merged.set(c, off); off += c.length; }
+  return new TextDecoder().decode(merged);
+}
+
+/* base64 encode Uint8Array */
+function uint8ToBase64(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+/* ═══════════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════════ */
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+/* ═══════════════════════════════════════════════════
+   DECODE TAB
+═══════════════════════════════════════════════════ */
+const dropzone        = document.getElementById('dropzone');
+const fileInput       = document.getElementById('fileInput');
+const fileCard        = document.getElementById('fileCard');
+const fileName        = document.getElementById('fileName');
+const fileSize        = document.getElementById('fileSize');
+const btnClear        = document.getElementById('btnClear');
+const pasteSection    = document.getElementById('pasteSection');
+const pasteArea       = document.getElementById('pasteArea');
+const btnPasteClear   = document.getElementById('btnPasteClear');
+const pasteHint       = document.getElementById('pasteHint');
+const decodeProgressWrap = document.getElementById('decodeProgressWrap');
+const decodeProgressLabel= document.getElementById('decodeProgressLabel');
+const decodeProgressPct  = document.getElementById('decodeProgressPct');
+const decodeBar          = document.getElementById('decodeBar');
+const decodeLog          = document.getElementById('decodeLog');
+const decodeResult       = document.getElementById('decodeResult');
+const decodeResultIcon   = document.getElementById('decodeResultIcon');
+const decodeResultTitle  = document.getElementById('decodeResultTitle');
+const decodeResultSub    = document.getElementById('decodeResultSub');
+const btnSaveJSON        = document.getElementById('btnSaveJSON');
+
+let decodedJSON = null;
+let suggestedDecName = 'export.json';
+
+function addDecodeLog(msg, cls='') {
+  const line = document.createElement('span');
+  line.className = 'log-line' + (cls ? ' '+cls : '');
+  line.textContent = msg;
+  decodeLog.appendChild(line);
+  decodeLog.scrollTop = decodeLog.scrollHeight;
+}
+function setDecodeProgress(pct, label) {
+  decodeBar.style.width = pct + '%';
+  decodeProgressPct.textContent = pct + '%';
+  if (label) decodeProgressLabel.textContent = label;
+  if (pct >= 100) decodeBar.classList.add('done');
+}
+
+function resetDecode() {
+  decodedJSON = null;
+  fileInput.value = '';
+  pasteArea.value = '';
+  pasteArea.classList.remove('has-content');
+  btnPasteClear.classList.remove('visible');
+  pasteHint.textContent = 'Starts decoding automatically when a valid string is pasted';
+  pasteSection.style.display = '';
+  dropzone.style.display = '';
+  fileCard.classList.remove('visible');
+  decodeProgressWrap.classList.remove('visible');
+  decodeResult.className = 'result-banner';
+  btnSaveJSON.style.display = 'none';
+  decodeLog.innerHTML = '';
+  decodeBar.style.width = '0%';
+  decodeBar.style.background = '';
+  decodeBar.classList.remove('done');
+  decodeProgressPct.textContent = '0%';
+  decodeProgressLabel.textContent = 'DECODING…';
+}
+
+async function decodeRaw(raw, sourceLabel) {
+  decodeLog.innerHTML = '';
+  decodeBar.classList.remove('done');
+  decodeBar.style.background = '';
+  decodeResult.className = 'result-banner';
+  btnSaveJSON.style.display = 'none';
+  decodeProgressWrap.classList.add('visible');
+  await sleep(80);
+  try {
+    setDecodeProgress(10, 'READING INPUT…');
+    addDecodeLog('▸ Source: ' + sourceLabel);
+    addDecodeLog('  Length: ' + raw.length.toLocaleString() + ' chars', 'info');
+    await sleep(120);
+
+    setDecodeProgress(25, 'DECODING BASE64…');
+    addDecodeLog('▸ Decoding base64 layer…');
+    await sleep(80);
+    let binaryStr;
+    try { binaryStr = atob(raw.trim()); }
+    catch(e) { throw new Error('Base64 decode failed — is this a valid Streamer.bot export?'); }
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+    setDecodeProgress(45, 'STRIPPING HEADER…');
+    await sleep(80);
+    const MAGIC = [0x53, 0x42, 0x41, 0x45];
+    let payload = bytes;
+    if (bytes[0]===MAGIC[0] && bytes[1]===MAGIC[1] && bytes[2]===MAGIC[2] && bytes[3]===MAGIC[3]) {
+      payload = bytes.slice(4);
+      addDecodeLog('  SBAE header found ✓', 'ok');
+    } else {
+      addDecodeLog('  No SBAE header — trying raw gzip…', 'info');
+    }
+
+    setDecodeProgress(60, 'DECOMPRESSING GZIP…');
+    addDecodeLog('▸ Decompressing gzip…');
+    await sleep(80);
+    let decompressed;
+    try { decompressed = await gzipDecompress(payload); }
+    catch(e) { throw new Error('Gzip decompress failed — file may be corrupt or not a Streamer.bot export.'); }
+    addDecodeLog('  Decompressed: ' + fmtBytes(decompressed.length), 'info');
+
+    setDecodeProgress(78, 'PARSING JSON…');
+    addDecodeLog('▸ Parsing JSON…');
+    await sleep(80);
+    let parsed;
+    try { parsed = JSON.parse(decompressed); }
+    catch(e) { throw new Error('JSON parse failed — decompressed data is not valid JSON.'); }
+
+    setDecodeProgress(92, 'SUMMARISING…');
+    await sleep(80);
+    const d = parsed.data || {};
+    addDecodeLog('  actions:  ' + (d.actions  ? d.actions.length  : '?'), 'info');
+    addDecodeLog('  commands: ' + (d.commands ? d.commands.length : '?'), 'info');
+    addDecodeLog('  timers:   ' + (d.timers   ? d.timers.length   : '?'), 'info');
+
+    setDecodeProgress(100, 'DONE');
+    await sleep(100);
+    addDecodeLog('✓ Decode complete', 'ok');
+    decodedJSON = parsed;
+
+    decodeResult.className = 'result-banner ok';
+    decodeResultIcon.textContent = '✅';
+    decodeResultTitle.textContent = 'Decoded successfully';
+    const meta = parsed.meta || {};
+    decodeResultSub.textContent = (meta.name || 'Export') + ' by ' + (meta.author || '?') + ' · ' + fmtBytes(decompressed.length) + ' uncompressed';
+    btnSaveJSON.style.display = '';
+  } catch(err) {
+    setDecodeProgress(100, 'FAILED');
+    decodeBar.style.background = 'var(--red)';
+    addDecodeLog('✗ ' + err.message, 'err');
+    decodeResult.className = 'result-banner err';
+    decodeResultIcon.textContent = '❌';
+    decodeResultTitle.textContent = 'Decode failed';
+    decodeResultSub.textContent = err.message;
+  }
+}
+
+async function processFile(file) {
+  decodedJSON = null;
+  suggestedDecName = file.name.replace(/\.sb$/i, '') + '.json';
+  dropzone.style.display = 'none';
+  pasteSection.style.display = 'none';
+  fileName.textContent = file.name;
+  fileSize.textContent = fmtBytes(file.size);
+  fileCard.classList.add('visible');
+  const raw = await file.text();
+  await decodeRaw(raw, file.name);
+}
+
+let pasteDebounce = null;
+async function processString(str) {
+  decodedJSON = null;
+  suggestedDecName = 'export.json';
+  dropzone.style.display = 'none';
+  pasteHint.textContent = 'Decoding…';
+  await decodeRaw(str, 'pasted string');
+  if (decodedJSON) pasteHint.textContent = 'Decoded — save below, or clear to paste a new string';
+  else pasteHint.textContent = 'Decode failed — check the string and try again';
+}
+
+pasteArea.addEventListener('input', () => {
+  const v = pasteArea.value.trim();
+  if (v) { pasteArea.classList.add('has-content'); btnPasteClear.classList.add('visible'); }
+  else   { pasteArea.classList.remove('has-content'); btnPasteClear.classList.remove('visible'); }
+  clearTimeout(pasteDebounce);
+  if (v.length > 20) pasteDebounce = setTimeout(() => processString(v), 400);
+});
+
+btnPasteClear.addEventListener('click', () => {
+  pasteArea.value = '';
+  pasteArea.classList.remove('has-content');
+  btnPasteClear.classList.remove('visible');
+  pasteHint.textContent = 'Starts decoding automatically when a valid string is pasted';
+  decodedJSON = null;
+  dropzone.style.display = '';
+  decodeProgressWrap.classList.remove('visible');
+  decodeResult.className = 'result-banner';
+  btnSaveJSON.style.display = 'none';
+  decodeLog.innerHTML = '';
+  decodeBar.style.width = '0%';
+  decodeBar.style.background = '';
+  decodeBar.classList.remove('done');
+  decodeProgressPct.textContent = '0%';
+  decodeProgressLabel.textContent = 'DECODING…';
+  pasteArea.focus();
+});
+
+btnSaveJSON.addEventListener('click', () => {
+  if (!decodedJSON) return;
+  const blob = new Blob([JSON.stringify(decodedJSON, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = suggestedDecName;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+});
+
+btnClear.addEventListener('click', resetDecode);
+
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) processFile(fileInput.files[0]); });
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+['dragleave','dragend'].forEach(ev => dropzone.addEventListener(ev, () => dropzone.classList.remove('drag-over')));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0]; if (f) processFile(f);
+});
+
+/* ═══════════════════════════════════════════════════
+   ENCODE TAB
+═══════════════════════════════════════════════════ */
+const encJsonArea        = document.getElementById('encJsonArea');
+const btnEncClear        = document.getElementById('btnEncClear');
+const btnEncode          = document.getElementById('btnEncode');
+const encHint            = document.getElementById('encHint');
+const schemaToggle       = document.getElementById('schemaToggle');
+const schemaBody         = document.getElementById('schemaBody');
+const encDropzone        = document.getElementById('encDropzone');
+const encFileInput       = document.getElementById('encFileInput');
+const encodeProgressWrap = document.getElementById('encodeProgressWrap');
+const encodeProgressLabel= document.getElementById('encodeProgressLabel');
+const encodeProgressPct  = document.getElementById('encodeProgressPct');
+const encodeBar          = document.getElementById('encodeBar');
+const encodeLog          = document.getElementById('encodeLog');
+const encodeResult       = document.getElementById('encodeResult');
+const encodeResultIcon   = document.getElementById('encodeResultIcon');
+const encodeResultTitle  = document.getElementById('encodeResultTitle');
+const encodeResultSub    = document.getElementById('encodeResultSub');
+const encOutputSection   = document.getElementById('encOutputSection');
+const encOutputArea      = document.getElementById('encOutputArea');
+const btnCopyOutput      = document.getElementById('btnCopyOutput');
+const btnSaveSB          = document.getElementById('btnSaveSB');
+
+let encodedString = null;
+let suggestedEncName = 'export.sb';
+
+function addEncodeLog(msg, cls='') {
+  const line = document.createElement('span');
+  line.className = 'log-line' + (cls ? ' '+cls : '');
+  line.textContent = msg;
+  encodeLog.appendChild(line);
+  encodeLog.scrollTop = encodeLog.scrollHeight;
+}
+function setEncodeProgress(pct, label) {
+  encodeBar.style.width = pct + '%';
+  encodeProgressPct.textContent = pct + '%';
+  if (label) encodeProgressLabel.textContent = label;
+  if (pct >= 100) encodeBar.classList.add('done');
+}
+
+/* schema toggle */
+schemaToggle.addEventListener('click', () => {
+  schemaToggle.classList.toggle('open');
+  schemaBody.classList.toggle('open');
+});
+
+/* JSON area validation */
+function validateAndUpdateHint() {
+  const v = encJsonArea.value.trim();
+  btnEncClear.className = v ? 'btn-enc-clear visible' : 'btn-enc-clear';
+  if (!v) {
+    encJsonArea.classList.remove('valid','invalid');
+    encHint.textContent = 'Paste valid Streamer.bot JSON to encode';
+    btnEncode.disabled = true;
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(v);
+    encJsonArea.classList.add('valid'); encJsonArea.classList.remove('invalid');
+    // Quick schema check
+    const warnings = [];
+    if (!parsed.data) warnings.push('missing "data" key');
+    if (!parsed.meta) warnings.push('missing "meta" key');
+    if (warnings.length) {
+      encHint.textContent = '⚠ ' + warnings.join(', ') + ' — will auto-fill defaults';
+    } else {
+      const d = parsed.data;
+      const parts = [];
+      if (d.actions)  parts.push(d.actions.length  + ' action(s)');
+      if (d.commands) parts.push(d.commands.length + ' command(s)');
+      if (d.timers)   parts.push(d.timers.length   + ' timer(s)');
+      encHint.textContent = '✓ Valid JSON · ' + (parts.join(', ') || 'empty data');
+    }
+    btnEncode.disabled = false;
+    return parsed;
+  } catch(e) {
+    encJsonArea.classList.add('invalid'); encJsonArea.classList.remove('valid');
+    encHint.textContent = '✗ Invalid JSON: ' + e.message.split('\n')[0];
+    btnEncode.disabled = true;
+    return null;
+  }
+}
+
+encJsonArea.addEventListener('input', validateAndUpdateHint);
+
+btnEncClear.addEventListener('click', () => {
+  clearLoadedFile();
+  encJsonArea.value = '';
+  encJsonArea.classList.remove('valid','invalid');
+  btnEncClear.className = 'btn-enc-clear';
+  encHint.textContent = 'Paste valid Streamer.bot JSON to encode';
+  btnEncode.disabled = true;
+  encodedString = null;
+  encodeProgressWrap.classList.remove('visible');
+  encodeResult.className = 'result-banner';
+  encOutputSection.classList.remove('visible');
+  encodeLog.innerHTML = '';
+  encodeBar.style.width = '0%';
+  encodeBar.style.background = '';
+  encodeBar.classList.remove('done');
+  encodeProgressPct.textContent = '0%';
+  encodeProgressLabel.textContent = 'ENCODING…';
+  encJsonArea.focus();
+});
+
+/* fill defaults for missing fields */
+function normaliseExport(raw) {
+  const out = Object.assign({
+    version: 23,
+    exportedFrom: '1.0.4',
+    minimumVersion: '1.0.0-alpha.1'
+  }, raw);
+
+  out.meta = Object.assign({
+    name: 'My Export', author: '', version: '1.0.0',
+    description: '', autoRunAction: null, minimumVersion: null
+  }, raw.meta || {});
+
+  const d = Object.assign({
+    actions: [], queues: [], commands: [],
+    websocketServers: [], websocketClients: [], timers: []
+  }, raw.data || {});
+
+  /* normalise actions */
+  d.actions = (d.actions || []).map((a, ai) => {
+    const id = a.id || uuid();
+    const subs = (a.subActions || []).map((s, si) => {
+      const base = {
+        id: s.id || uuid(), weight: 0, parentId: null,
+        enabled: s.enabled !== undefined ? s.enabled : true,
+        index: si, type: s.type || 99999
+      };
+      // type 99999 — Execute Code
+      if (base.type === 99999) {
+        return Object.assign({
+          name: null, description: null,
+          references: ['C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\mscorlib.dll', '.\\Newtonsoft.Json.dll'],
+          precompile: false, delayStart: false,
+          saveResultToVariable: false, saveToVariable: null,
+          byteCode: s.byteCode || btoa(s.code || '')
+        }, s, base);
+      }
+      // type 123 — Set Variable
+      if (base.type === 123) {
+        return Object.assign({ variableName: '', value: '', autoType: true }, s, base);
+      }
+      // type 1002 — Delay
+      if (base.type === 1002) {
+        return Object.assign({ value: '1000', maxValue: null, random: false }, s, base);
+      }
+      // type 30 — OBS source
+      if (base.type === 30) {
+        return Object.assign({ sceneName: '', sourceName: '', state: 1,
+          connectionId: '00000000-0000-0000-0000-000000000000' }, s, base);
+      }
+      // type 1/7 — Send message
+      if (base.type === 1 || base.type === 7) {
+        return Object.assign({ message: '' }, s, base);
+      }
+      return Object.assign({}, s, base);
+    });
+
+    const triggers = (a.triggers || []).map(t => {
+      return Object.assign({ id: t.id || uuid(), enabled: t.enabled !== undefined ? t.enabled : true, exclusions: [] }, t);
+    });
+
+    return {
+      id, queue: a.queue || '00000000-0000-0000-0000-000000000000',
+      enabled: a.enabled !== undefined ? a.enabled : true,
+      excludeFromHistory: a.excludeFromHistory || false,
+      excludeFromPending: a.excludeFromPending || false,
+      name: a.name || ('Action ' + (ai+1)),
+      group: a.group || null,
+      alwaysRun: a.alwaysRun || false,
+      randomAction: a.randomAction || false,
+      concurrent: a.concurrent || false,
+      collapsedGroups: a.collapsedGroups || [],
+      triggers, subActions: subs
+    };
+  });
+
+  /* normalise commands */
+  d.commands = (d.commands || []).map(c => Object.assign({
+    id: c.id || uuid(), name: c.name || 'Command',
+    command: c.command || '!command',
+    enabled: c.enabled !== undefined ? c.enabled : true,
+    include: false, mode: 0, regexExplicitCapture: false,
+    location: 0, ignoreBotAccount: false, ignoreInternal: false,
+    sources: 1, persistCounter: false, persistUserCounter: false,
+    caseSensitive: false, globalCooldown: 0, userCooldown: 0,
+    group: null, grantType: 0,
+    permittedUsers: [], permittedGroups: []
+  }, c));
+
+  /* normalise timers */
+  d.timers = (d.timers || []).map(t => Object.assign({
+    id: t.id || uuid(), name: t.name || 'Timer',
+    enabled: t.enabled !== undefined ? t.enabled : true,
+    repeat: t.repeat !== undefined ? t.repeat : true,
+    interval: t.interval || 60,
+    randomInterval: false, upperInterval: 0,
+    lines: 0, counter: 0
+  }, t));
+
+  out.data = d;
+  return out;
+}
+
+async function _encodeObject(raw) {
+  encodedString = null;
+  encodeLog.innerHTML = '';
+  encodeBar.style.width = '0%';
+  encodeBar.classList.remove('done');
+  encodeBar.style.background = '';
+  encodeProgressPct.textContent = '0%';
+  encodeProgressLabel.textContent = 'ENCODING…';
+  encodeResult.className = 'result-banner';
+  encOutputSection.classList.remove('visible');
+  encodeProgressWrap.classList.add('visible');
+  await sleep(80);
+
+  try {
+    setEncodeProgress(12, 'NORMALISING SCHEMA…');
+    addEncodeLog('▸ Validating and filling defaults…');
+    await sleep(100);
+
+    const normalised = normaliseExport(raw);
+    const d = normalised.data;
+    addEncodeLog('  actions:  ' + d.actions.length,  'info');
+    addEncodeLog('  commands: ' + d.commands.length, 'info');
+    addEncodeLog('  timers:   ' + d.timers.length,   'info');
+
+    // Validate C# byteCode fields
+    let codeWarnings = 0;
+    for (const a of d.actions) {
+      for (const s of a.subActions) {
+        if (s.type === 99999 && s.byteCode) {
+          try { atob(s.byteCode); }
+          catch(e) {
+            addEncodeLog('  ⚠ byteCode in "' + (a.name||'?') + '" is not valid base64 — cleared', 'warn');
+            s.byteCode = '';
+            codeWarnings++;
+          }
+        }
+      }
+    }
+    if (codeWarnings) addEncodeLog('  ' + codeWarnings + ' byteCode field(s) cleared', 'warn');
+
+    setEncodeProgress(35, 'SERIALISING JSON…');
+    addEncodeLog('▸ Serialising to JSON…');
+    await sleep(80);
+    const jsonStr = JSON.stringify(normalised);
+    addEncodeLog('  JSON size: ' + fmtBytes(jsonStr.length), 'info');
+
+    setEncodeProgress(55, 'COMPRESSING GZIP…');
+    addEncodeLog('▸ Compressing with gzip…');
+    await sleep(80);
+    const compressed = await gzipCompress(jsonStr);
+    addEncodeLog('  Compressed: ' + fmtBytes(compressed.length) + ' (' + Math.round(compressed.length/jsonStr.length*100) + '% of original)', 'info');
+
+    setEncodeProgress(78, 'PREPENDING HEADER…');
+    addEncodeLog('▸ Prepending SBAE magic header…');
+    await sleep(60);
+    const MAGIC = new Uint8Array([0x53, 0x42, 0x41, 0x45]);
+    const full = new Uint8Array(MAGIC.length + compressed.length);
+    full.set(MAGIC, 0);
+    full.set(compressed, MAGIC.length);
+
+    setEncodeProgress(90, 'BASE64 ENCODING…');
+    addEncodeLog('▸ Base64 encoding…');
+    await sleep(60);
+    encodedString = uint8ToBase64(full);
+    addEncodeLog('  Output length: ' + encodedString.length.toLocaleString() + ' chars', 'info');
+
+    setEncodeProgress(100, 'DONE');
+    await sleep(80);
+    addEncodeLog('✓ Encode complete — ready to import into Streamer.bot', 'ok');
+
+    const meta = normalised.meta;
+    suggestedEncName = (meta.name || 'export').replace(/[^a-zA-Z0-9_-]/g, '_') + '.sb';
+
+    encodeResult.className = 'result-banner ok';
+    encodeResultIcon.textContent = '✅';
+    encodeResultTitle.textContent = 'Encoded successfully';
+    encodeResultSub.textContent = fmtBytes(encodedString.length) + ' · ready to paste into Streamer.bot Import dialog';
+
+    encOutputArea.value = encodedString;
+    encOutputSection.classList.add('visible');
+
+  } catch(err) {
+    setEncodeProgress(100, 'FAILED');
+    encodeBar.style.background = 'var(--red)';
+    addEncodeLog('✗ ' + err.message, 'err');
+    encodeResult.className = 'result-banner err';
+    encodeResultIcon.textContent = '❌';
+    encodeResultTitle.textContent = 'Encode failed';
+    encodeResultSub.textContent = err.message;
+  }
+}
+
+async function runEncode() {
+  if (_loadedFileJSON) {
+    await _encodeObject(_loadedFileJSON);
+  } else {
+    const v = encJsonArea.value.replace(/^\uFEFF/, '').trim();
+    let raw;
+    try { raw = JSON.parse(v); }
+    catch(e) { encHint.textContent = '✗ Invalid JSON: ' + e.message.split('\n')[0]; return; }
+    await _encodeObject(raw);
+  }
+}
+
+btnEncode.addEventListener('click', runEncode);
+
+/* copy to clipboard */
+btnCopyOutput.addEventListener('click', async () => {
+  if (!encodedString) return;
+  try {
+    await navigator.clipboard.writeText(encodedString);
+    btnCopyOutput.textContent = 'Copied! ✓';
+    btnCopyOutput.classList.add('copied');
+    setTimeout(() => { btnCopyOutput.textContent = 'Copy to Clipboard'; btnCopyOutput.classList.remove('copied'); }, 2000);
+  } catch(e) {
+    encOutputArea.select();
+    document.execCommand('copy');
+    btnCopyOutput.textContent = 'Copied! ✓';
+    setTimeout(() => { btnCopyOutput.textContent = 'Copy to Clipboard'; }, 2000);
+  }
+});
+
+/* save as .sb */
+btnSaveSB.addEventListener('click', () => {
+  if (!encodedString) return;
+  const blob = new Blob([encodedString], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = suggestedEncName;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+});
+
+/* ── file loaded directly into memory (bypasses textarea for large files) ── */
+let _loadedFileJSON = null;   // parsed object from file, if file was used
+let _loadedFileName = null;
+
+function clearLoadedFile() {
+  _loadedFileJSON = null;
+  _loadedFileName = null;
+  encDropzone.querySelector('.dz-label').textContent = 'Drop .json file here';
+  encDropzone.querySelector('.dz-sub').textContent   = 'populates the editor above';
+  encDropzone.style.borderColor = '';
+}
+
+async function loadJSONFile(file) {
+  clearLoadedFile();
+  encJsonArea.value = '';
+  encJsonArea.classList.remove('valid','invalid');
+  btnEncClear.className = 'btn-enc-clear';
+  btnEncode.disabled = true;
+  encHint.textContent = 'Reading file…';
+
+  let text;
+  try {
+    text = await file.text();
+  } catch(e) {
+    encHint.textContent = '✗ Could not read file: ' + e.message;
+    return;
+  }
+
+  // Strip BOM and leading whitespace
+  text = text.replace(/^\uFEFF/, '').trim();
+
+  const sizeKB = (file.size / 1024).toFixed(1);
+  suggestedEncName = file.name.replace(/\.json$/i, '') + '.sb';
+
+  // For large files (>500KB) skip the textarea entirely — load into memory only
+  if (file.size > 512 * 1024) {
+    try {
+      _loadedFileJSON = JSON.parse(text);
+      _loadedFileName = file.name;
+      // Show a truncated preview in textarea (first 2000 chars)
+      encJsonArea.value = text.slice(0, 2000) + '\n\n… [' + fmtBytes(file.size) + ' — loaded into memory, editor shows preview only]';
+      encJsonArea.classList.add('valid'); encJsonArea.classList.remove('invalid');
+      const d = _loadedFileJSON.data || {};
+      const parts = [];
+      if (d.actions)  parts.push(d.actions.length  + ' action(s)');
+      if (d.commands) parts.push(d.commands.length + ' command(s)');
+      if (d.timers)   parts.push(d.timers.length   + ' timer(s)');
+      encHint.textContent = '✓ ' + file.name + ' · ' + fmtBytes(file.size) + ' · ' + (parts.join(', ') || 'empty data');
+      encDropzone.querySelector('.dz-label').textContent = '✓ ' + file.name;
+      encDropzone.querySelector('.dz-sub').textContent   = fmtBytes(file.size) + ' · loaded into memory';
+      encDropzone.style.borderColor = 'var(--green)';
+      btnEncode.disabled = false;
+    } catch(e) {
+      encJsonArea.value = text.slice(0, 500);
+      encJsonArea.classList.add('invalid'); encJsonArea.classList.remove('valid');
+      encHint.textContent = '✗ Invalid JSON: ' + e.message.split('\n')[0];
+      btnEncode.disabled = true;
+    }
+    return;
+  }
+
+  // Small files: put into textarea as normal
+  encJsonArea.value = text;
+  validateAndUpdateHint();
+  encJsonArea.scrollTop = 0;
+}
+
+/* override runEncode to use in-memory JSON when available */
+const _origRunEncode = runEncode;
+async function runEncodeWithFile() {
+  if (_loadedFileJSON) {
+    // Use the in-memory parsed object directly — skip textarea parse
+    await _encodeObject(_loadedFileJSON);
+  } else {
+    const raw = validateAndUpdateHint();
+    if (!raw) return;
+    await _encodeObject(raw);
+  }
+}
+
+/* drop JSON file onto encoder drop zone */
+encDropzone.addEventListener('dragover', e => { e.preventDefault(); encDropzone.classList.add('drag-over'); });
+['dragleave','dragend'].forEach(ev => encDropzone.addEventListener(ev, () => encDropzone.classList.remove('drag-over')));
+encDropzone.addEventListener('drop', e => {
+  e.preventDefault(); encDropzone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0]; if (f) loadJSONFile(f);
+});
+encFileInput.addEventListener('change', () => { if (encFileInput.files[0]) loadJSONFile(encFileInput.files[0]); });
+
+/* also strip BOM when typing/pasting into the textarea directly */
+encJsonArea.addEventListener('paste', () => {
+  // on next tick after paste lands, strip BOM if present
+  setTimeout(() => {
+    if (encJsonArea.value.charCodeAt(0) === 0xFEFF) {
+      encJsonArea.value = encJsonArea.value.slice(1);
+    }
+    validateAndUpdateHint();
+  }, 0);
+});
+</script>
+</body>
+</html>
